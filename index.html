@@ -49,90 +49,78 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 </style>
 </head>
 <body>
-<div class="header"><h1>&#x1F4CA; 相場チェッカー</h1></div>
+<div class="header"><h1>相場チェッカー</h1></div>
 <div class="search-area">
 <div class="search-row">
-<input type="text" id="keyword" placeholder="商品名 または JANコード"/>
-<button class="btn btn-scan" onclick="openScanner()">&#x1F4F7;</button>
-<button class="btn btn-primary" onclick="search()">検索</button>
+<input type="text" id="keyword" placeholder="商品名またはJANコード"/>
+<button class="btn btn-scan" onclick="openScanner()">Scan</button>
+<button class="btn btn-primary" onclick="doSearch()">検索</button>
 </div>
 <div class="jan-display" id="jan-display"></div>
 </div>
 <div class="scanner-wrap" id="scanner-wrap">
 <div class="scanner-header">バーコードをカメラに向けてください</div>
 <div id="interactive" style="position:relative;flex:1;overflow:hidden;width:100%;height:100%;"></div>
-<button class="scanner-close" onclick="closeScanner()">&#x2715;</button>
+<button class="scanner-close" onclick="closeScanner()">X</button>
 </div>
-<div class="loading" id="loading"><div class="spinner"></div><p style="color:#888;font-size:14px;">データ取得中...</p></div>
+<div class="loading" id="loading"><div class="spinner"></div><p>データ取得中...</p></div>
 <div class="results" id="results">
 <div class="card">
-<div class="card-title"><span>メルカリ 売却済み<span class="badge badge-s">SOLD</span></span><a id="m-sold-link" href="#" target="_blank">見る &#x2192;</a></div>
-<div class="stats" id="m-sold-stats"></div>
+<div class="card-title"><span>メルカリ売却済み<span class="badge badge-s">SOLD</span></span><a id="ms-link" href="#" target="_blank">見る</a></div>
+<div class="stats" id="ms-stats"></div>
 <div class="chart-wrap"><canvas id="soldChart"></canvas></div>
-<div class="items" id="m-sold-items"></div>
+<div class="items" id="ms-items"></div>
 </div>
 <div class="card">
-<div class="card-title"><span>メルカリ 出品中<span class="badge badge-o">出品中</span></span><a id="m-sale-link" href="#" target="_blank">見る &#x2192;</a></div>
-<div class="stats" id="m-sale-stats"></div>
-<div class="items" id="m-sale-items"></div>
+<div class="card-title"><span>メルカリ出品中<span class="badge badge-o">出品中</span></span><a id="mo-link" href="#" target="_blank">見る</a></div>
+<div class="stats" id="mo-stats"></div>
+<div class="items" id="mo-items"></div>
 </div>
 <div class="card">
-<div class="card-title"><span>ヤフオク 落札済み<span class="badge badge-y">SOLD</span></span><a id="y-link" href="#" target="_blank">見る &#x2192;</a></div>
-<div class="stats" id="y-stats"></div>
+<div class="card-title"><span>ヤフオク落札済み<span class="badge badge-y">SOLD</span></span><a id="ya-link" href="#" target="_blank">見る</a></div>
+<div class="stats" id="ya-stats"></div>
 <div class="chart-wrap"><canvas id="yahooChart"></canvas></div>
-<div class="items" id="y-items"></div>
+<div class="items" id="ya-items"></div>
 </div>
 </div>
 <script>
 var GAS='https://script.google.com/macros/s/AKfycbxyIoSzAR8N4RXLIzfejat2UpQxQjbntKJCvm2IvwB799Tj1ZHfQitigh-HsXB3Ug63Vg/exec';
-var soldChart=null,yahooChart=null;
-document.getElementById('keyword').addEventListener('keydown',function(e){if(e.key==='Enter')search();});
+var sc=null,yc=null;
+document.getElementById('keyword').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch();});
 function openScanner(){
-  document.getElementById('scanner-wrap').style.display='flex';
-  Quagga.init({inputStream:{type:'LiveStream',target:document.getElementById('interactive'),constraints:{facingMode:'environment'}},decoder:{readers:['ean_reader','ean_8_reader','code_128_reader']},locate:true},function(err){
-    if(err){alert('カメラエラー');closeScanner();return;}Quagga.start();
-  });
-  Quagga.offDetected();
-  Quagga.onDetected(function(data){
-    var code=data.codeResult.code;if(!code)return;
-    document.getElementById('keyword').value=code;
-    document.getElementById('jan-display').textContent='JANコード: '+code;
-    closeScanner();search();
-  });
+document.getElementById('scanner-wrap').style.display='flex';
+Quagga.init({inputStream:{type:'LiveStream',target:document.getElementById('interactive'),constraints:{facingMode:'environment'}},decoder:{readers:['ean_reader','ean_8_reader','code_128_reader']},locate:true},function(err){if(err){alert('カメラ失敗');closeScanner();return;}Quagga.start();});
+Quagga.offDetected();
+Quagga.onDetected(function(d){var c=d.codeResult.code;if(!c)return;document.getElementById('keyword').value=c;document.getElementById('jan-display').textContent='JAN: '+c;closeScanner();doSearch();});
 }
 function closeScanner(){document.getElementById('scanner-wrap').style.display='none';try{Quagga.stop();}catch(e){}}
-function search(){
-  var kw=document.getElementById('keyword').value.trim();if(!kw)return;
-  var enc=encodeURIComponent(kw);
-  document.getElementById('m-sold-link').href='https://jp.mercari.com/search?keyword='+enc+'&status=sold_out';
-  document.getElementById('m-sale-link').href='https://jp.mercari.com/search?keyword='+enc+'&status=on_sale';
-  document.getElementById('y-link').href='https://auctions.yahoo.co.jp/closedsearch/closedsearch?p='+enc;
-  document.getElementById('loading').style.display='block';
-  document.getElementById('results').style.display='none';
-  Promise.all([
-    fetch(GAS+'?keyword='+enc+'&type=mercari_sold').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
-    fetch(GAS+'?keyword='+enc+'&type=mercari_sale').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
-    fetch(GAS+'?keyword='+enc+'&type=yahoo_sold').then(function(r){return r.json();}).catch(function(){return {items:[]};})
-  ]).then(function(results){
-    document.getElementById('loading').style.display='none';
-    document.getElementById('results').style.display='block';
-    renderMercariSold(results[0].items||[]);
-    renderMercariSale(results[1].items||[]);
-    renderYahoo(results[2].items||[]);
-  }).catch(function(){
-    document.getElementById('loading').style.display='none';
-    document.getElementById('results').style.display='block';
-  });
+function doSearch(){
+var kw=document.getElementById('keyword').value.trim();if(!kw)return;
+var enc=encodeURIComponent(kw);
+document.getElementById('ms-link').href='https://jp.mercari.com/search?keyword='+enc+'&status=sold_out';
+document.getElementById('mo-link').href='https://jp.mercari.com/search?keyword='+enc+'&status=on_sale';
+document.getElementById('ya-link').href='https://auctions.yahoo.co.jp/closedsearch/closedsearch?p='+enc;
+document.getElementById('loading').style.display='block';
+document.getElementById('results').style.display='none';
+Promise.all([
+fetch(GAS+'?keyword='+enc+'&type=mercari_sold').then(function(r){return r.json();}).catch(function(){return{items:[]};}),
+fetch(GAS+'?keyword='+enc+'&type=mercari_sale').then(function(r){return r.json();}).catch(function(){return{items:[]};}),
+fetch(GAS+'?keyword='+enc+'&type=yahoo_sold').then(function(r){return r.json();}).catch(function(){return{items:[]};})
+]).then(function(res){
+document.getElementById('loading').style.display='none';
+document.getElementById('results').style.display='block';
+renderSold(res[0].items||[]);renderSale(res[1].items||[]);renderYahoo(res[2].items||[]);
+}).catch(function(){document.getElementById('loading').style.display='none';document.getElementById('results').style.display='block';});
 }
-function calcStats(items){var prices=items.map(function(i){return i.price;}).filter(function(p){return p>0;}).sort(function(a,b){return a-b;});if(!prices.length)return null;return{avg:Math.round(prices.reduce(function(s,p){return s+p;},0)/prices.length),med:prices[Math.floor(prices.length/2)],min:prices[0],max:prices[prices.length-1],count:prices.length};}
-function yen(p){return'&#x00A5;'+p.toLocaleString();}
-function fmtDate(ts){if(!ts)return'';var d=new Date(typeof ts==='number'?ts*1000:ts);return isNaN(d)?'':(d.getMonth()+1)+'/'+(d.getDate());}
-function renderStats(el,s,labels){if(!s){el.innerHTML='<div class="empty" style="grid-column:1/-1">データなし</div>';return;}el.innerHTML=labels.map(function(l,i){var vals=[yen(s.avg),yen(s.med),s.count+'件',yen(s.min),yen(s.max)];return'<div class="stat"><div class="stat-lbl">'+l+'</div><div class="stat-val">'+vals[i]+'</div></div>';}).join('');}
-function renderItems(el,items,urlFn){if(!items.length){el.innerHTML='<div class="empty">データなし</div>';return;}el.innerHTML=items.slice(0,20).map(function(item){return'<a class="item" href="'+urlFn(item)+'" target="_blank">'+(item.thumbnail?'<img class="thumb" src="'+item.thumbnail+'" loading="lazy" onerror="this.style.display='none'">':'<div class="thumb"></div>')+'<div class="item-info"><div class="item-name">'+(item.name||'商品名不明')+'</div><div class="item-price">'+yen(item.price)+'</div>'+(item.created?'<div class="item-sub">'+fmtDate(item.created)+'</div>':'')+'</div></a>';}).join('');}
-function makeChart(id,items,existing){if(existing)existing.destroy();var sorted=items.filter(function(i){return i.price>0;}).sort(function(a,b){return(a.created||0)-(b.created||0);}).slice(-20);if(!sorted.length)return null;return new Chart(document.getElementById(id).getContext('2d'),{type:'line',data:{labels:sorted.map(function(i){return fmtDate(i.created);}),datasets:[{data:sorted.map(function(i){return i.price;}),borderColor:'#e9594c',backgroundColor:'rgba(233,89,76,0.08)',tension:0.3,pointRadius:3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return'&#x00A5;'+v.toLocaleString();},font:{size:10}}},x:{ticks:{font:{size:10}}}}}});}
-function renderMercariSold(items){renderStats(document.getElementById('m-sold-stats'),calcStats(items),['平均','中央値','件数']);soldChart=makeChart('soldChart',items,soldChart);renderItems(document.getElementById('m-sold-items'),items,function(i){return'https://jp.mercari.com/item/'+i.id;});}
-function renderMercariSale(items){var s=items.slice().sort(function(a,b){return a.price-b.price;});renderStats(document.getElementById('m-sale-stats'),calcStats(s),['最安','平均','件数']);renderItems(document.getElementById('m-sale-items'),s,function(i){return'https://jp.mercari.com/item/'+i.id;});}
-function renderYahoo(items){renderStats(document.getElementById('y-stats'),calcStats(items),['平均','中央値','件数']);yahooChart=makeChart('yahooChart',items,yahooChart);renderItems(document.getElementById('y-items'),items,function(i){return i.id?'https://page.auctions.yahoo.co.jp/jp/auction/'+i.id:'#';});}
+function calcStats(items){var p=items.map(function(i){return i.price;}).filter(function(x){return x>0;}).sort(function(a,b){return a-b;});if(!p.length)return null;return{avg:Math.round(p.reduce(function(s,x){return s+x;},0)/p.length),med:p[Math.floor(p.length/2)],min:p[0],max:p[p.length-1],count:p.length};}
+function Y(p){return p.toLocaleString()+'円';}
+function fmtD(ts){if(!ts)return'';var d=new Date(typeof ts==='number'?ts*1000:ts);return isNaN(d)?'':(d.getMonth()+1)+'/'+(d.getDate());}
+function renderStats(el,s,lb){if(!s){el.innerHTML='<div class="empty" style="grid-column:1/-1">データなし</div>';return;}el.innerHTML=lb.map(function(l,i){var v=[Y(s.avg),Y(s.med),s.count+'件',Y(s.min),Y(s.max)];return'<div class="stat"><div class="stat-lbl">'+l+'</div><div class="stat-val">'+v[i]+'</div></div>';}).join('');}
+function renderList(el,items,uf){if(!items.length){el.innerHTML='<div class="empty">データなし</div>';return;}el.innerHTML=items.slice(0,20).map(function(it){return'<a class="item" href="'+uf(it)+'" target="_blank">'+(it.thumbnail?'<img class="thumb" src="'+it.thumbnail+'" loading="lazy" onerror="this.style.display='none'">':'<div class="thumb"></div>')+'<div class="item-info"><div class="item-name">'+(it.name||'不明')+'</div><div class="item-price">'+Y(it.price)+'</div>'+(it.created?'<div class="item-sub">'+fmtD(it.created)+'</div>':'')+'</div></a>';}).join('');}
+function mkChart(id,items,ex){if(ex)ex.destroy();var s=items.filter(function(i){return i.price>0;}).sort(function(a,b){return(a.created||0)-(b.created||0);}).slice(-20);if(!s.length)return null;return new Chart(document.getElementById(id).getContext('2d'),{type:'line',data:{labels:s.map(function(i){return fmtD(i.created);}),datasets:[{data:s.map(function(i){return i.price;}),borderColor:'#e9594c',backgroundColor:'rgba(233,89,76,.08)',tension:.3,pointRadius:3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return v.toLocaleString()+'円';},font:{size:10}}},x:{ticks:{font:{size:10}}}}}});}
+function renderSold(items){renderStats(document.getElementById('ms-stats'),calcStats(items),['平均','中央値','件数']);sc=mkChart('soldChart',items,sc);renderList(document.getElementById('ms-items'),items,function(i){return'https://jp.mercari.com/item/'+i.id;});}
+function renderSale(items){var s=items.slice().sort(function(a,b){return a.price-b.price;});renderStats(document.getElementById('mo-stats'),calcStats(s),['最安','平均','件数']);renderList(document.getElementById('mo-items'),s,function(i){return'https://jp.mercari.com/item/'+i.id;});}
+function renderYahoo(items){renderStats(document.getElementById('ya-stats'),calcStats(items),['平均','中央値','件数']);yc=mkChart('yahooChart',items,yc);renderList(document.getElementById('ya-items'),items,function(i){return i.id?'https://page.auctions.yahoo.co.jp/jp/auction/'+i.id:'#';});}
 </script>
 </body>
 </html>
