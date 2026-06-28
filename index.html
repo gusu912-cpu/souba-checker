@@ -4,123 +4,100 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>相場チェッカー</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
-.header{background:#e9594c;color:white;padding:14px 16px;position:sticky;top:0;z-index:100}
-.header h1{font-size:17px;font-weight:bold}
-.search-area{background:white;padding:12px;border-bottom:1px solid #ddd}
-.search-row{display:flex;gap:8px;margin-bottom:8px}
-.search-row input{flex:1;padding:11px 13px;border:2px solid #ddd;border-radius:10px;font-size:16px;outline:none}
-.search-row input:focus{border-color:#e9594c}
-.btn{padding:11px 16px;border:none;border-radius:10px;font-size:14px;font-weight:bold;cursor:pointer}
-.btn-primary{background:#e9594c;color:white}
-.btn-scan{background:#333;color:white;font-size:20px;padding:11px 14px}
-.jan-display{font-size:12px;color:#888;min-height:18px}
-.scanner-wrap{display:none;position:fixed;inset:0;background:black;z-index:200;flex-direction:column}
-.scanner-header{background:rgba(0,0,0,.8);color:white;padding:16px;text-align:center}
-.scanner-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);color:white;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer}
-.loading{display:none;text-align:center;padding:40px 20px}
-.spinner{width:40px;height:40px;border:4px solid #eee;border-top-color:#e9594c;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.results{padding:12px;display:none}
-.card{background:white;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.card-title{font-size:14px;font-weight:bold;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
-.card-title a{font-size:12px;color:#e9594c;text-decoration:none}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.stat{background:#fafafa;border-radius:8px;padding:8px 4px;text-align:center}
-.stat-lbl{font-size:10px;color:#999;margin-bottom:3px}
-.stat-val{font-size:16px;font-weight:bold;color:#e9594c}
-.chart-wrap{height:180px;position:relative}
-.items{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:300px;overflow-y:auto}
-.item{display:flex;align-items:center;gap:8px;padding:7px;background:#fafafa;border-radius:8px;text-decoration:none;color:inherit}
-.thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;background:#e8e8e8;flex-shrink:0}
-.item-info{flex:1;min-width:0}
-.item-name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#444}
-.item-price{font-size:14px;font-weight:bold;color:#e9594c}
-.item-sub{font-size:11px;color:#bbb}
-.empty{text-align:center;color:#bbb;padding:20px;font-size:13px}
-.badge{display:inline-block;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:bold;margin-left:6px}
-.badge-s{background:#e8f5e9;color:#2e7d32}
-.badge-y{background:#e3f2fd;color:#1565c0}
-.badge-o{background:#fff8e1;color:#f57f17}
+.hd{background:#e9594c;color:#fff;padding:14px 16px;font-size:18px;font-weight:bold}
+.sa{background:#fff;padding:12px;border-bottom:1px solid #ddd}
+.sr{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.sr input{flex:1;padding:12px;border:2px solid #ddd;border-radius:10px;font-size:16px;outline:none;min-width:0}
+.sr input:focus{border-color:#e9594c}
+.btn{padding:12px 18px;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;flex-shrink:0}
+.bp{background:#e9594c;color:#fff}
+.bs{background:#333;color:#fff}
+.jd{font-size:12px;color:#888;margin-top:4px;min-height:16px}
+.sw{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000;z-index:200;flex-direction:column}
+.sh{background:rgba(0,0,0,.8);color:#fff;padding:16px;text-align:center;font-size:15px}
+#interactive{flex:1;overflow:hidden;position:relative;width:100%}
+#interactive video{width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0}
+#interactive canvas{display:none}
+.sl{position:absolute;top:50%;left:10%;width:80%;height:3px;background:#e9594c;transform:translateY(-50%);z-index:10}
+.sc{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer;z-index:10}
+.rs{padding:12px;display:none}
+.cd{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.cd h3{font-size:14px;color:#666;margin-bottom:10px}
+.lnk{display:block;width:100%;padding:16px;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;color:#fff}
 </style>
 </head>
 <body>
-<div class="header"><h1>相場チェッカー</h1></div>
-<div class="search-area">
-<div class="search-row">
-<input type="text" id="keyword" placeholder="商品名またはJANコード"/>
-<button class="btn btn-scan" onclick="openScanner()">Scan</button>
-<button class="btn btn-primary" onclick="doSearch()">検索</button>
+<div class="hd">相場チェッカー</div>
+<div class="sa">
+<div class="sr">
+<input type="text" id="kw" placeholder="商品名 または JANコード"/>
+<button class="btn bs" onclick="openScan()">Scan</button>
+<button class="btn bp" onclick="go()">検索</button>
 </div>
-<div class="jan-display" id="jan-display"></div>
+<div class="jd" id="jd"></div>
 </div>
-<div class="scanner-wrap" id="scanner-wrap">
-<div class="scanner-header">バーコードをカメラに向けてください</div>
-<div id="interactive" style="position:relative;flex:1;overflow:hidden;width:100%;height:100%;"></div>
-<button class="scanner-close" onclick="closeScanner()">X</button>
+<div class="sw" id="sw">
+<div class="sh">バーコードをカメラに向けてください</div>
+<div id="interactive"><div class="sl"></div></div>
+<button class="sc" onclick="closeScan()">X</button>
 </div>
-<div class="loading" id="loading"><div class="spinner"></div><p>データ取得中...</p></div>
-<div class="results" id="results">
-<div class="card">
-<div class="card-title"><span>メルカリ売却済み<span class="badge badge-s">SOLD</span></span><a id="ms-link" href="#" target="_blank">見る</a></div>
-<div class="stats" id="ms-stats"></div>
-<div class="chart-wrap"><canvas id="soldChart"></canvas></div>
-<div class="items" id="ms-items"></div>
+<div class="rs" id="rs">
+<div class="cd">
+<h3>メルカリ 売却済み相場</h3>
+<a id="ms" href="#" target="_blank" class="lnk" style="background:#e9594c">メルカリ（売り切れ）を見る</a>
 </div>
-<div class="card">
-<div class="card-title"><span>メルカリ出品中<span class="badge badge-o">出品中</span></span><a id="mo-link" href="#" target="_blank">見る</a></div>
-<div class="stats" id="mo-stats"></div>
-<div class="items" id="mo-items"></div>
+<div class="cd">
+<h3>メルカリ 出品中（安い順）</h3>
+<a id="mo" href="#" target="_blank" class="lnk" style="background:#f07030">メルカリ（出品中）を見る</a>
 </div>
-<div class="card">
-<div class="card-title"><span>ヤフオク落札済み<span class="badge badge-y">SOLD</span></span><a id="ya-link" href="#" target="_blank">見る</a></div>
-<div class="stats" id="ya-stats"></div>
-<div class="chart-wrap"><canvas id="yahooChart"></canvas></div>
-<div class="items" id="ya-items"></div>
+<div class="cd">
+<h3>ヤフオク 落札済み相場</h3>
+<a id="ya" href="#" target="_blank" class="lnk" style="background:#3a3">ヤフオクで見る</a>
+</div>
+<div class="cd">
+<h3>Amazon</h3>
+<a id="am" href="#" target="_blank" class="lnk" style="background:#f90">Amazonで見る</a>
 </div>
 </div>
 <script>
-var GAS='https://script.google.com/macros/s/AKfycbxyIoSzAR8N4RXLIzfejat2UpQxQjbntKJCvm2IvwB799Tj1ZHfQitigh-HsXB3Ug63Vg/exec';
-var sc=null,yc=null;
-document.getElementById('keyword').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch();});
-function openScanner(){
-document.getElementById('scanner-wrap').style.display='flex';
-Quagga.init({inputStream:{type:'LiveStream',target:document.getElementById('interactive'),constraints:{facingMode:'environment'}},decoder:{readers:['ean_reader','ean_8_reader','code_128_reader']},locate:true},function(err){if(err){alert('カメラ失敗');closeScanner();return;}Quagga.start();});
-Quagga.offDetected();
-Quagga.onDetected(function(d){var c=d.codeResult.code;if(!c)return;document.getElementById('keyword').value=c;document.getElementById('jan-display').textContent='JAN: '+c;closeScanner();doSearch();});
+document.getElementById('kw').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+function openScan(){
+  document.getElementById('sw').style.display='flex';
+  Quagga.init({
+    inputStream:{type:'LiveStream',target:document.getElementById('interactive'),constraints:{facingMode:'environment'}},
+    decoder:{readers:['ean_reader','ean_8_reader','code_128_reader','upc_reader']},
+    locate:true
+  },function(err){
+    if(err){alert('カメラを起動できません');closeScan();return;}
+    Quagga.start();
+  });
+  Quagga.offDetected();
+  Quagga.onDetected(function(d){
+    var c=d.codeResult.code;
+    if(!c||c.length<6)return;
+    Quagga.offDetected();
+    document.getElementById('kw').value=c;
+    document.getElementById('jd').textContent='JAN: '+c;
+    closeScan();
+    go();
+  });
 }
-function closeScanner(){document.getElementById('scanner-wrap').style.display='none';try{Quagga.stop();}catch(e){}}
-function doSearch(){
-var kw=document.getElementById('keyword').value.trim();if(!kw)return;
-var enc=encodeURIComponent(kw);
-document.getElementById('ms-link').href='https://jp.mercari.com/search?keyword='+enc+'&status=sold_out';
-document.getElementById('mo-link').href='https://jp.mercari.com/search?keyword='+enc+'&status=on_sale';
-document.getElementById('ya-link').href='https://auctions.yahoo.co.jp/closedsearch/closedsearch?p='+enc;
-document.getElementById('loading').style.display='block';
-document.getElementById('results').style.display='none';
-Promise.all([
-fetch(GAS+'?keyword='+enc+'&type=mercari_sold').then(function(r){return r.json();}).catch(function(){return{items:[]};}),
-fetch(GAS+'?keyword='+enc+'&type=mercari_sale').then(function(r){return r.json();}).catch(function(){return{items:[]};}),
-fetch(GAS+'?keyword='+enc+'&type=yahoo_sold').then(function(r){return r.json();}).catch(function(){return{items:[]};})
-]).then(function(res){
-document.getElementById('loading').style.display='none';
-document.getElementById('results').style.display='block';
-renderSold(res[0].items||[]);renderSale(res[1].items||[]);renderYahoo(res[2].items||[]);
-}).catch(function(){document.getElementById('loading').style.display='none';document.getElementById('results').style.display='block';});
+function closeScan(){document.getElementById('sw').style.display='none';try{Quagga.stop();}catch(e){}}
+function go(){
+  var kw=document.getElementById('kw').value.trim();
+  if(!kw)return;
+  var e=encodeURIComponent(kw);
+  document.getElementById('ms').href='https://jp.mercari.com/search?keyword='+e+'&status=sold_out&sort=created_time&order=desc';
+  document.getElementById('mo').href='https://jp.mercari.com/search?keyword='+e+'&status=on_sale&sort=price&order=asc';
+  document.getElementById('ya').href='https://auctions.yahoo.co.jp/closedsearch/closedsearch?p='+e+'&va='+e+'&b=1&n=50&s1=end&o1=d';
+  document.getElementById('am').href='https://www.amazon.co.jp/s?k='+e;
+  document.getElementById('rs').style.display='block';
+  document.getElementById('rs').scrollIntoView({behavior:'smooth'});
 }
-function calcStats(items){var p=items.map(function(i){return i.price;}).filter(function(x){return x>0;}).sort(function(a,b){return a-b;});if(!p.length)return null;return{avg:Math.round(p.reduce(function(s,x){return s+x;},0)/p.length),med:p[Math.floor(p.length/2)],min:p[0],max:p[p.length-1],count:p.length};}
-function Y(p){return p.toLocaleString()+'円';}
-function fmtD(ts){if(!ts)return'';var d=new Date(typeof ts==='number'?ts*1000:ts);return isNaN(d)?'':(d.getMonth()+1)+'/'+(d.getDate());}
-function renderStats(el,s,lb){if(!s){el.innerHTML='<div class="empty" style="grid-column:1/-1">データなし</div>';return;}el.innerHTML=lb.map(function(l,i){var v=[Y(s.avg),Y(s.med),s.count+'件',Y(s.min),Y(s.max)];return'<div class="stat"><div class="stat-lbl">'+l+'</div><div class="stat-val">'+v[i]+'</div></div>';}).join('');}
-function renderList(el,items,uf){if(!items.length){el.innerHTML='<div class="empty">データなし</div>';return;}el.innerHTML=items.slice(0,20).map(function(it){return'<a class="item" href="'+uf(it)+'" target="_blank">'+(it.thumbnail?'<img class="thumb" src="'+it.thumbnail+'" loading="lazy" onerror="this.style.display='none'">':'<div class="thumb"></div>')+'<div class="item-info"><div class="item-name">'+(it.name||'不明')+'</div><div class="item-price">'+Y(it.price)+'</div>'+(it.created?'<div class="item-sub">'+fmtD(it.created)+'</div>':'')+'</div></a>';}).join('');}
-function mkChart(id,items,ex){if(ex)ex.destroy();var s=items.filter(function(i){return i.price>0;}).sort(function(a,b){return(a.created||0)-(b.created||0);}).slice(-20);if(!s.length)return null;return new Chart(document.getElementById(id).getContext('2d'),{type:'line',data:{labels:s.map(function(i){return fmtD(i.created);}),datasets:[{data:s.map(function(i){return i.price;}),borderColor:'#e9594c',backgroundColor:'rgba(233,89,76,.08)',tension:.3,pointRadius:3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return v.toLocaleString()+'円';},font:{size:10}}},x:{ticks:{font:{size:10}}}}}});}
-function renderSold(items){renderStats(document.getElementById('ms-stats'),calcStats(items),['平均','中央値','件数']);sc=mkChart('soldChart',items,sc);renderList(document.getElementById('ms-items'),items,function(i){return'https://jp.mercari.com/item/'+i.id;});}
-function renderSale(items){var s=items.slice().sort(function(a,b){return a.price-b.price;});renderStats(document.getElementById('mo-stats'),calcStats(s),['最安','平均','件数']);renderList(document.getElementById('mo-items'),s,function(i){return'https://jp.mercari.com/item/'+i.id;});}
-function renderYahoo(items){renderStats(document.getElementById('ya-stats'),calcStats(items),['平均','中央値','件数']);yc=mkChart('yahooChart',items,yc);renderList(document.getElementById('ya-items'),items,function(i){return i.id?'https://page.auctions.yahoo.co.jp/jp/auction/'+i.id:'#';});}
 </script>
 </body>
 </html>
