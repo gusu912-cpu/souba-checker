@@ -24,10 +24,13 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 #interactive canvas{display:none}
 .sl{position:absolute;top:50%;left:10%;width:80%;height:3px;background:#e9594c;transform:translateY(-50%);z-index:10}
 .sc{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer;z-index:10}
+.ld{display:none;text-align:center;padding:20px;color:#888;font-size:14px}
 .rs{padding:12px;display:none}
 .cd{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
 .cd h3{font-size:14px;color:#666;margin-bottom:10px}
 .lnk{display:block;width:100%;padding:16px;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;color:#fff}
+.lnk2{display:block;width:100%;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;color:#fff;margin-top:8px}
+.note{font-size:11px;color:#aaa;margin-top:6px}
 </style>
 </head>
 <body>
@@ -45,18 +48,21 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 <div id="interactive"><div class="sl"></div></div>
 <button class="sc" onclick="closeScan()">X</button>
 </div>
+<div class="ld" id="ld">商品名を取得中...</div>
 <div class="rs" id="rs">
 <div class="cd">
-<h3>メルカリ 売却済み相場</h3>
-<a id="ms" href="#" target="_blank" class="lnk" style="background:#e9594c">メルカリ（売り切れ）を見る</a>
+<h3>オークフリー（メルカリ＋ヤフオク 横断相場）</h3>
+<a id="of" href="#" target="_blank" class="lnk" style="background:#6c3">オークフリーで相場を見る</a>
+<p class="note">※ 売れた値段・件数がまとめて見られます</p>
 </div>
 <div class="cd">
-<h3>メルカリ 出品中（安い順）</h3>
-<a id="mo" href="#" target="_blank" class="lnk" style="background:#f07030">メルカリ（出品中）を見る</a>
+<h3>メルカリ</h3>
+<a id="ms" href="#" target="_blank" class="lnk" style="background:#e9594c">売却済みを見る</a>
+<a id="mo" href="#" target="_blank" class="lnk2" style="background:#f07030">出品中（安い順）を見る</a>
 </div>
 <div class="cd">
-<h3>ヤフオク 落札済み相場</h3>
-<a id="ya" href="#" target="_blank" class="lnk" style="background:#3a3">ヤフオクで見る</a>
+<h3>ヤフオク</h3>
+<a id="ya" href="#" target="_blank" class="lnk" style="background:#3a3">落札済みを見る</a>
 </div>
 <div class="cd">
 <h3>Amazon</h3>
@@ -64,33 +70,55 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 </div>
 </div>
 <script>
+var GAS='https://script.google.com/macros/s/AKfycbxyIoSzAR8N4RXLIzfejat2UpQxQjbntKJCvm2IvwB799Tj1ZHfQitigh-HsXB3Ug63Vg/exec';
 document.getElementById('kw').addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+function isJan(s){return /^[0-9]{8,13}$/.test(s);}
 function openScan(){
   document.getElementById('sw').style.display='flex';
-  Quagga.init({
-    inputStream:{type:'LiveStream',target:document.getElementById('interactive'),constraints:{facingMode:'environment'}},
-    decoder:{readers:['ean_reader','ean_8_reader','code_128_reader','upc_reader']},
-    locate:true
-  },function(err){
-    if(err){alert('カメラを起動できません');closeScan();return;}
-    Quagga.start();
+  Quagga.init({inputStream:{type:'LiveStream',target:document.getElementById('interactive'),constraints:{facingMode:'environment'}},decoder:{readers:['ean_reader','ean_8_reader','code_128_reader','upc_reader']},locate:true},function(err){
+    if(err){alert('カメラを起動できません');closeScan();return;}Quagga.start();
   });
   Quagga.offDetected();
   Quagga.onDetected(function(d){
-    var c=d.codeResult.code;
-    if(!c||c.length<6)return;
+    var c=d.codeResult.code;if(!c||c.length<6)return;
     Quagga.offDetected();
     document.getElementById('kw').value=c;
-    document.getElementById('jd').textContent='JAN: '+c;
-    closeScan();
-    go();
+    closeScan();go();
   });
 }
 function closeScan(){document.getElementById('sw').style.display='none';try{Quagga.stop();}catch(e){}}
 function go(){
   var kw=document.getElementById('kw').value.trim();
   if(!kw)return;
+  if(isJan(kw)){
+    document.getElementById('ld').style.display='block';
+    document.getElementById('rs').style.display='none';
+    document.getElementById('jd').textContent='JANコード: '+kw+' → 商品名を検索中...';
+    fetch(GAS+'?keyword='+encodeURIComponent(kw)+'&type=jan')
+      .then(function(r){return r.json();})
+      .then(function(j){
+        document.getElementById('ld').style.display='none';
+        var name=j.name||kw;
+        if(j.source!=='none'){
+          document.getElementById('kw').value=name;
+          document.getElementById('jd').textContent='JAN '+kw+' → '+name;
+        } else {
+          document.getElementById('jd').textContent='商品名が見つかりませんでした。JANコードで検索します。';
+        }
+        search(name);
+      })
+      .catch(function(){
+        document.getElementById('ld').style.display='none';
+        document.getElementById('jd').textContent='取得失敗。JANコードで検索します。';
+        search(kw);
+      });
+  } else {
+    search(kw);
+  }
+}
+function search(kw){
   var e=encodeURIComponent(kw);
+  document.getElementById('of').href='https://aucfan.com/search1/q-'+e+'/s-mix/';
   document.getElementById('ms').href='https://jp.mercari.com/search?keyword='+e+'&status=sold_out&sort=created_time&order=desc';
   document.getElementById('mo').href='https://jp.mercari.com/search?keyword='+e+'&status=on_sale&sort=price&order=asc';
   document.getElementById('ya').href='https://auctions.yahoo.co.jp/closedsearch/closedsearch?p='+e+'&va='+e+'&b=1&n=50&s1=end&o1=d';
