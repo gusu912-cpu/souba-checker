@@ -45,6 +45,9 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 .ybids{font-size:10px;color:#999;margin-top:2px}
 .yloading{text-align:center;color:#aaa;font-size:13px;padding:16px}
 .yempty{text-align:center;color:#bbb;font-size:13px;padding:16px}
+.copybox{display:flex;gap:8px;margin-top:8px}
+.copybox input{flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;background:#fafafa;color:#666}
+.copybtn{padding:10px 14px;border:none;border-radius:8px;background:#6c3;color:#fff;font-size:13px;font-weight:bold;cursor:pointer;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -71,13 +74,18 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 <a id="ya" href="#" target="_blank" class="lnk2" style="background:#3a3">ヤフオクで全件見る</a>
 </div>
 <div class="cd">
-<h3>オークフリー（横断相場）</h3>
-<a id="of" href="#" target="_blank" class="lnk" style="background:#6c3">オークフリーで相場を見る</a>
+<h3>オークファン（横断相場）</h3>
+<a id="of" href="https://aucfan.com/search1/s-mix/" target="_blank" class="lnk" style="background:#6c3">オークファンを開く</a>
+<div class="copybox">
+<input type="text" id="kwcopy" readonly/>
+<button class="copybtn" onclick="copyKw()">コピー</button>
+</div>
+<p class="note">※ 開いたページの検索欄に貼り付けて検索してください</p>
 </div>
 <div class="cd">
 <h3>メルカリ</h3>
 <a id="ms" href="#" target="_blank" class="lnk" style="background:#e9594c">売却済みを見る</a>
-<a id="mo" href="#" target="_blank" class="lnk2" style="background:#f07030">出品中（安い順）を見る</a>
+<a id="mo" href="#" target="_blank" class="lnk2" style="background:#f07030">出品中（新しい順）を見る</a>
 </div>
 <div class="cd">
 <h3>Amazon</h3>
@@ -102,6 +110,17 @@ function openScan(){
   });
 }
 function closeScan(){document.getElementById('sw').style.display='none';try{Quagga.stop();}catch(e){}}
+function copyKw(){
+  var el=document.getElementById('kwcopy');
+  el.select();
+  el.setSelectionRange(0,99999);
+  try{
+    document.execCommand('copy');
+  }catch(e){}
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(el.value).catch(function(){});
+  }
+}
 function go(){
   var kw=document.getElementById('kw').value.trim();
   if(!kw)return;
@@ -189,9 +208,9 @@ function loadYahooData(kw){
 }
 function search(kw){
   var e=encodeURIComponent(kw);
-  document.getElementById('of').href='https://aucfan.com/search1/q-'+e+'/s-mix/';
+  document.getElementById('kwcopy').value=kw;
   document.getElementById('ms').href='https://jp.mercari.com/search?keyword='+e+'&status=sold_out&sort=created_time&order=desc';
-  document.getElementById('mo').href='https://jp.mercari.com/search?keyword='+e+'&status=on_sale&sort=price&order=asc';
+  document.getElementById('mo').href='https://jp.mercari.com/search?keyword='+e+'&status=on_sale&sort=created_time&order=desc';
   document.getElementById('ya').href='https://auctions.yahoo.co.jp/closedsearch/closedsearch?p='+e+'&va='+e+'&b=1&n=50&s1=end&o1=d';
   document.getElementById('am').href='https://www.amazon.co.jp/s?k='+e;
   document.getElementById('rs').style.display='block';
