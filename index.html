@@ -35,10 +35,14 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 .stat{background:#fafafa;border-radius:8px;padding:8px 4px;text-align:center}
 .stat-lbl{font-size:10px;color:#999;margin-bottom:3px}
 .stat-val{font-size:15px;font-weight:bold;color:#3a3}
-.ylist{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:280px;overflow-y:auto}
-.yitem{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px;background:#fafafa;border-radius:8px;text-decoration:none;color:inherit}
-.yname{font-size:12px;color:#444;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.yprice{font-size:13px;font-weight:bold;color:#3a3;white-space:nowrap}
+.ylist{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:320px;overflow-y:auto}
+.yitem{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;background:#fafafa;border-radius:8px;text-decoration:none;color:inherit}
+.yleft{flex:1;min-width:0}
+.yname{font-size:12px;color:#444;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ydate{font-size:11px;color:#3a3;margin-top:2px;display:block;font-weight:bold}
+.yright{text-align:right;flex-shrink:0}
+.yprice{font-size:14px;font-weight:bold;color:#3a3;white-space:nowrap}
+.ybids{font-size:10px;color:#999;margin-top:2px}
 .yloading{text-align:center;color:#aaa;font-size:13px;padding:16px}
 .yempty{text-align:center;color:#bbb;font-size:13px;padding:16px}
 </style>
@@ -132,7 +136,11 @@ function fmtDate(iso){
   if(!iso)return'';
   var d=new Date(iso);
   if(isNaN(d))return'';
-  return (d.getMonth()+1)+'/'+d.getDate();
+  var mm=d.getMonth()+1;
+  var dd=d.getDate();
+  var hh=d.getHours();
+  var mi=d.getMinutes();
+  return mm+'/'+dd+' '+(hh<10?'0'+hh:hh)+':'+(mi<10?'0'+mi:mi)+'終了';
 }
 function calcStats(items){
   var prices=items.map(function(i){return i.price;}).filter(function(p){return p>0;}).sort(function(a,b){return a-b;});
@@ -140,7 +148,7 @@ function calcStats(items){
   var sum=prices.reduce(function(s,p){return s+p;},0);
   return{avg:Math.round(sum/prices.length),min:prices[0],max:prices[prices.length-1],count:prices.length};
 }
-function renderYahooStats(s,fallbackCount){
+function renderYahooStats(s){
   var el=document.getElementById('y-stats');
   if(!s){el.innerHTML='<div class="stat" style="grid-column:1/-1">データなし</div>';return;}
   el.innerHTML=
@@ -154,7 +162,10 @@ function renderYahooList(items){
   el.innerHTML=items.slice(0,20).map(function(it){
     var url=it.id?'https://page.auctions.yahoo.co.jp/jp/auction/'+it.id:'#';
     var d=fmtDate(it.endTime);
-    return '<a class="yitem" href="'+url+'" target="_blank"><span class="yname">'+(it.name||'(商品名不明)')+(d?' ('+d+')':'')+'</span><span class="yprice">'+yen(it.price)+'</span></a>';
+    return '<a class="yitem" href="'+url+'" target="_blank">'+
+      '<div class="yleft"><span class="yname">'+(it.name||'(商品名不明)')+'</span>'+(d?'<span class="ydate">'+d+'</span>':'')+'</div>'+
+      '<div class="yright"><div class="yprice">'+yen(it.price)+'</div>'+(it.bidCount?'<div class="ybids">入札'+it.bidCount+'件</div>':'')+'</div>'+
+      '</a>';
   }).join('');
 }
 function loadYahooData(kw){
