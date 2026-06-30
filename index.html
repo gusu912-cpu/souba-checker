@@ -31,6 +31,16 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 .lnk{display:block;width:100%;padding:16px;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;color:#fff}
 .lnk2{display:block;width:100%;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none;color:#fff;margin-top:8px}
 .note{font-size:11px;color:#aaa;margin-top:6px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:#fafafa;border-radius:8px;padding:8px 4px;text-align:center}
+.stat-lbl{font-size:10px;color:#999;margin-bottom:3px}
+.stat-val{font-size:15px;font-weight:bold;color:#3a3}
+.ylist{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:280px;overflow-y:auto}
+.yitem{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px;background:#fafafa;border-radius:8px;text-decoration:none;color:inherit}
+.yname{font-size:12px;color:#444;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.yprice{font-size:13px;font-weight:bold;color:#3a3;white-space:nowrap}
+.yloading{text-align:center;color:#aaa;font-size:13px;padding:16px}
+.yempty{text-align:center;color:#bbb;font-size:13px;padding:16px}
 </style>
 </head>
 <body>
@@ -51,18 +61,19 @@ body{font-family:-apple-system,sans-serif;background:#f0f0f0;color:#222}
 <div class="ld" id="ld">商品名を取得中...</div>
 <div class="rs" id="rs">
 <div class="cd">
-<h3>オークフリー（メルカリ＋ヤフオク 横断相場）</h3>
+<h3>ヤフオク 落札相場（直近50件）</h3>
+<div class="stats" id="y-stats"></div>
+<div id="y-list" class="ylist"></div>
+<a id="ya" href="#" target="_blank" class="lnk2" style="background:#3a3">ヤフオクで全件見る</a>
+</div>
+<div class="cd">
+<h3>オークフリー（横断相場）</h3>
 <a id="of" href="#" target="_blank" class="lnk" style="background:#6c3">オークフリーで相場を見る</a>
-<p class="note">※ 売れた値段・件数がまとめて見られます</p>
 </div>
 <div class="cd">
 <h3>メルカリ</h3>
 <a id="ms" href="#" target="_blank" class="lnk" style="background:#e9594c">売却済みを見る</a>
 <a id="mo" href="#" target="_blank" class="lnk2" style="background:#f07030">出品中（安い順）を見る</a>
-</div>
-<div class="cd">
-<h3>ヤフオク</h3>
-<a id="ya" href="#" target="_blank" class="lnk" style="background:#3a3">落札済みを見る</a>
 </div>
 <div class="cd">
 <h3>Amazon</h3>
@@ -116,6 +127,55 @@ function go(){
     search(kw);
   }
 }
+function yen(p){return p.toLocaleString()+'円';}
+function fmtDate(iso){
+  if(!iso)return'';
+  var d=new Date(iso);
+  if(isNaN(d))return'';
+  return (d.getMonth()+1)+'/'+d.getDate();
+}
+function calcStats(items){
+  var prices=items.map(function(i){return i.price;}).filter(function(p){return p>0;}).sort(function(a,b){return a-b;});
+  if(!prices.length)return null;
+  var sum=prices.reduce(function(s,p){return s+p;},0);
+  return{avg:Math.round(sum/prices.length),min:prices[0],max:prices[prices.length-1],count:prices.length};
+}
+function renderYahooStats(s,fallbackCount){
+  var el=document.getElementById('y-stats');
+  if(!s){el.innerHTML='<div class="stat" style="grid-column:1/-1">データなし</div>';return;}
+  el.innerHTML=
+    '<div class="stat"><div class="stat-lbl">平均</div><div class="stat-val">'+yen(s.avg)+'</div></div>'+
+    '<div class="stat"><div class="stat-lbl">最安</div><div class="stat-val">'+yen(s.min)+'</div></div>'+
+    '<div class="stat"><div class="stat-lbl">最高</div><div class="stat-val">'+yen(s.max)+'</div></div>';
+}
+function renderYahooList(items){
+  var el=document.getElementById('y-list');
+  if(!items.length){el.innerHTML='<div class="yempty">直近の落札データが見つかりませんでした</div>';return;}
+  el.innerHTML=items.slice(0,20).map(function(it){
+    var url=it.id?'https://page.auctions.yahoo.co.jp/jp/auction/'+it.id:'#';
+    var d=fmtDate(it.endTime);
+    return '<a class="yitem" href="'+url+'" target="_blank"><span class="yname">'+(it.name||'(商品名不明)')+(d?' ('+d+')':'')+'</span><span class="yprice">'+yen(it.price)+'</span></a>';
+  }).join('');
+}
+function loadYahooData(kw){
+  document.getElementById('y-stats').innerHTML='<div class="yloading" style="grid-column:1/-1">相場を取得中...</div>';
+  document.getElementById('y-list').innerHTML='';
+  fetch(GAS+'?keyword='+encodeURIComponent(kw)+'&type=yahoo_sold')
+    .then(function(r){return r.json();})
+    .then(function(j){
+      var items=j.items||[];
+      var stats=calcStats(items);
+      if(!stats && j.avgFromMeta){
+        stats={avg:j.avgFromMeta,min:0,max:0,count:j.countFromMeta||0};
+      }
+      renderYahooStats(stats);
+      renderYahooList(items);
+    })
+    .catch(function(){
+      document.getElementById('y-stats').innerHTML='<div class="stat" style="grid-column:1/-1">取得失敗</div>';
+      document.getElementById('y-list').innerHTML='';
+    });
+}
 function search(kw){
   var e=encodeURIComponent(kw);
   document.getElementById('of').href='https://aucfan.com/search1/q-'+e+'/s-mix/';
@@ -125,6 +185,7 @@ function search(kw){
   document.getElementById('am').href='https://www.amazon.co.jp/s?k='+e;
   document.getElementById('rs').style.display='block';
   document.getElementById('rs').scrollIntoView({behavior:'smooth'});
+  loadYahooData(kw);
 }
 </script>
 </body>
